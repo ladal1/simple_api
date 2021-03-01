@@ -18,4 +18,7 @@ from testcases.objects import patterns
 from simple_api.frontend import views
 
 urlpatterns = patterns
-urlpatterns.append(url(r'(?i)^frontend/.*', views.serve_frontend, name='frontend'))
+urlpatterns.append(url(r'(?i)^frontend/login/.*', views.serve_frontend, name='frontend'))
+urlpatterns.append(url(r'(?i)^frontend/actions/.*', views.serve_frontend, name='frontend'))
+urlpatterns.append(url(r'(?i)^frontend/objects/.*', views.serve_frontend, name='frontend'))
+urlpatterns.append(url(r'(?i)^frontend/', views.serve_frontend, name='frontend'))
