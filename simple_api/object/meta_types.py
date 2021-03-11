@@ -7,7 +7,8 @@ from simple_api.object.datatypes import PlainListType, ObjectType, DurationType,
 class FieldInfo(Object):
     fields = {
         "name": StringType(),
-        "typename": StringType()
+        "typename": StringType(),
+        "default": StringType(nullable=True)
     }
     hidden = True
 

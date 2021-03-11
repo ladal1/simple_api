@@ -1,69 +1,86 @@
-from django.contrib.auth.models import User as UserModel
+from django.core.exceptions import ObjectDoesNotExist
 
 from simple_api.adapters.graphql.graphql import GraphQLAdapter
 from simple_api.adapters.utils import generate
-from simple_api.django_object.actions import CreateAction, UpdateAction, DeleteAction, DetailAction, ListAction, ModelAction
 from simple_api.django_object.django_object import DjangoObject
-from simple_api.django_object.permissions import IsAuthenticated
-from simple_api.object.datatypes import StringType
-from simple_api.object.permissions import Or
+from simple_api.object.actions import Action
+from simple_api.object.datatypes import IntegerType, ObjectType, StringType, FloatType
+from simple_api.object.permissions import AllowAll
+from simple_api.object.validators import Validator, And
 
 from tests.graphql.graphql_test_utils import build_patterns
 
-from .models import Post as PostModel
+from .models import Book as BookModel, Bookmark as BookmarkModel
 
 
-class IsAdmin(IsAuthenticated):
-    def permission_statement(self, request, obj, **kwargs):
-        return request.user.is_staff or request.user.is_superuser
+class NotNegative(Validator):
+    def validation_statement(self, request, value=None, **kwargs):
+        return value >= 0
+
+    def error_message(self, **kwargs):
+        return "Validation failed in NotNegative"
 
 
-class IsSelf(IsAuthenticated):
-    def permission_statement(self, request, obj, **kwargs):
-        return request.user == obj
+class NotZero(Validator):
+    def validation_statement(self, request, value=None, **kwargs):
+        return value != 0
+
+    def error_message(self, **kwargs):
+        return "Validation failed in NotZero"
 
 
-class IsTheirs(IsAuthenticated):
-    def permission_statement(self, request, obj, **kwargs):
-        return request.user == obj.author
+class LongerThen3Characters(Validator):
+    def validation_statement(self, request, value=None, **kwargs):
+        return len(value) > 3
+
+    def error_message(self, **kwargs):
+        return "Search term must be at least 4 characters"
 
 
-def set_password(request, params, **kwargs):
-    # this would set a password to request.user, but for the showcase it is not needed
-    pass
+class NotRestrictedBook(Validator):
+    def validation_statement(self, request, value=None, **kwargs):
+        try:
+            return not BookModel.objects.get(id=kwargs["params"]["id"]).restricted
+        except ObjectDoesNotExist:
+            return True
+
+    def error_message(self, **kwargs):
+        return "Only not restricted books can be accessed"
 
 
-def create_post(request, params, **kwargs):
-    data = params["data"]
-    return PostModel.objects.create(title=data["title"], content=data["content"], author=request.user)
+def get_by_id(**kwargs):
+    return BookModel.objects.get(id=kwargs["params"]["id"])
 
 
-class User(DjangoObject):
-    model = UserModel
-    only_fields = ("username", )
-
-    create_action = CreateAction(permissions=IsAdmin)
-    update_action = UpdateAction(permissions=IsAdmin)
-    delete_action = DeleteAction(permissions=IsAdmin)
-    detail_action = DetailAction(permissions=IsAdmin)
-    list_action = ListAction(permissions=IsAdmin)
-
+class Book(DjangoObject):
+    model = BookModel
     custom_actions = {
-        "changePassword": ModelAction(data={"password": StringType()}, exec_fn=set_password,
-                                      permissions=IsAuthenticated),
-        "myProfile": ModelAction(exec_fn=lambda request, **kwargs: request.user, permissions=IsAuthenticated)
-    }
+        "getById": Action(parameters={"id": IntegerType(validators=And(NotNegative, NotZero))},
+                          return_value=ObjectType("self"),
+                          validators=NotRestrictedBook,
+                          exec_fn=get_by_id),
+        "getById2": Action(parameters={"id": IntegerType(validators=NotNegative)},
+                           data={"Title": StringType(validators=LongerThen3Characters)},
+                           return_value=ObjectType("self"),
+                           validators=NotRestrictedBook,
+                           exec_fn=get_by_id)}
 
 
-class Post(DjangoObject):
-    model = PostModel
-
-    create_action = CreateAction(exclude_fields=("author_id",), permissions=IsAuthenticated, exec_fn=create_post)
-    update_action = UpdateAction(permissions=Or(IsAdmin, IsTheirs))
-    delete_action = DeleteAction(permissions=Or(IsAdmin, IsTheirs))
-    list_action = ListAction(permissions=IsAuthenticated)
-    detail_action = DetailAction(permissions=IsAuthenticated)
+class Bookmark(DjangoObject):
+    model = BookmarkModel
 
 
-schema = generate(GraphQLAdapter)
+def ping(**kwargs):
+    if kwargs["params"]["command"] == "ping":
+        return "Pong" + " --- " + str(round(kwargs["params"]["data"]["round"], 1))
+    if kwargs["params"]["command"] == "pong":
+        return "Ping" + " --- " + str(round(kwargs["params"]["data"]["round"], 2))
+    return "Bonk"
+
+
+actions = {
+    "Ping": Action(parameters={"command": StringType()}, data={"round": FloatType(nullable=True)}, return_value=StringType(), exec_fn=ping, permissions=AllowAll)
+}
+
+schema = generate(GraphQLAdapter, actions)
 patterns = build_patterns(schema)

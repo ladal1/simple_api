@@ -48,7 +48,8 @@ def build_action_info_fn(actions):
 def build_field_info(field_name, field):
     return {
         "name": field_name,
-        "typename": str(field)
+        "typename": str(field),
+        "default": field.default()
     }
 
 

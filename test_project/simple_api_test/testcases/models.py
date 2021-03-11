@@ -1,11 +1,23 @@
-from django.contrib.auth.models import User
-from django.db.models import Model, CharField, TextField, ForeignKey, CASCADE
+from django.core.exceptions import ValidationError
+from django.db.models import Model, CharField, BooleanField, IntegerField, ForeignKey, CASCADE
 
 
-class Post(Model):
+def shelf_Validator(value):
+    if value <= 0 or value == 7:
+        raise ValidationError('%(value)s is not valid shelf number', params={'value': value})
+
+
+class Book(Model):
+    author = CharField(max_length=50)
     title = CharField(max_length=50)
-    author = ForeignKey(User, on_delete=CASCADE)
-    content = TextField()
+    ISBN = CharField(max_length=13, default="0000-000-0000")
+    restricted = BooleanField(default=False)
+    shelf = IntegerField(validators=[shelf_Validator], default=3)
 
     def __str__(self):
-        return "{} by {}".format(self.title, self.author)
+        return "{} - {}".format(self.title, self.author)
+
+
+class Bookmark(Model):
+    page = IntegerField()
+    book = ForeignKey(Book, CASCADE)
