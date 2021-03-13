@@ -31,6 +31,8 @@ class ActionInfo(Object):
         "permitted": BooleanType(),
         "deny_reason": StringType(nullable=True),
         "retry_in": DurationType(nullable=True),
+
+        "mutation": BooleanType()
     }
     hidden = True
 

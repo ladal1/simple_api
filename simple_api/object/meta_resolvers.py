@@ -78,6 +78,11 @@ def build_actions_resolver(cls, with_object=True):
                 permitted = False
                 deny_reason = str(e)
 
+            try:
+                mutation = action.kwargs["mutation"]
+            except KeyError:
+                mutation = False
+
             action_item = {
                 # todo change this to be graphql independent
                 "name": "{}{}".format(cls.__name__, capitalize(action.name) if cls.__name__ != "" else action.name),
@@ -87,6 +92,7 @@ def build_actions_resolver(cls, with_object=True):
                 "return_type": str(action.return_value),
                 "parameters": params,
                 "data": data,
+                "mutation": mutation
             }
             out.append(action_item)
         return out
